@@ -1,9 +1,16 @@
 name: Terraform Pipeline
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select Environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - stage
 
 env:
   TF_ROOT: infra/terraform
