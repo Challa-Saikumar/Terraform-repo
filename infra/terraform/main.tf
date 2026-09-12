@@ -1,6 +1,6 @@
 module "s3_bucket" {
 
-  source = "../module/s3-bucket"
+  source = "../../module/s3-bucket"
 
   bucket_name = var.bucket_name
   environment = var.environment
