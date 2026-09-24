@@ -94,3 +94,9 @@ jobs:
       - name: Terraform Apply
         working-directory: infra/terraform
         run: terraform apply -auto-approve tfplan
+
+      - name: Terraform Destroy
+        working-directory: infra/terraform
+        run: terraform destroy -auto-approve \
+       -var-file=../environments/${{ github.event.inputs.environment }}/terraform.tfvars
+
