@@ -3,6 +3,7 @@
 *.tfstate
 *.tfstate.*
 .terraform.lock.hcl
+three-tier/
 
 # Terraform plan files
 tfplan
