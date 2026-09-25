@@ -1,7 +1,16 @@
 name: AWS OIDC Authentication Test
 
 on:
-  workflow_dispatch:   # allows you to trigger manually from GitHub Actions tab
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select Environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - stage
 
 jobs:
   auth-test:
@@ -19,3 +28,6 @@ jobs:
 
       - name: Verify AWS identity
         run: aws sts get-caller-identity
+
+      - name: Print selected environment
+        run: echo "Deploying to ${{ github.event.inputs.environment }} environment"
