@@ -42,3 +42,17 @@ jobs:
 
       - name: Print selected environment
         run: echo "Deploying to ${{ github.event.inputs.environment }} environment"
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push backend image
+        run: |
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }} ./three-tier/backend
+          docker push ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}
+
+      - name: Build, tag, and push frontend image
+        run: |
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }} ./three-tier/frontend
+          docker push ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}
