@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+  labels:
+    app: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: 901602271390.dkr.ecr.us-east-1.amazonaws.com/nodejs-three-tier-dev-app:frontend-${GITHUB_SHA}
+          ports:
+            - containerPort: 3000
+          env:
+            - name: BACKEND_URL
+              value: "http://backend-service:4000/api"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: LoadBalancer
