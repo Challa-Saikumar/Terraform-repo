@@ -29,6 +29,9 @@ jobs:
           echo "Ref: $GITHUB_REF"
           echo "Branch: $GITHUB_REF_NAME"
 
+      - name: Debug OIDC claims
+        uses: github/actions-oidc-debugger@main
+
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
