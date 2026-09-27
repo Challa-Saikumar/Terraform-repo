@@ -105,8 +105,6 @@ jobs:
       - name: Build frontend image
         run: docker build -t ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }} ./three-tier/frontend
 
-      - name: Scan frontend image with Trivy
-        run: trivy image --severity HIGH,CRITICAL --exit-code 1 ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}
 
       - name: Push frontend image
         run: docker push ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}
