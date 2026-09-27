@@ -64,4 +64,6 @@ jobs:
         run: |
            kubectl apply -f k8s/dev/db-secrets.yaml
            kubectl apply -f k8s/dev/backend-deployment.yaml
+           kubectl set image deployment/backend-deployment backend=${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}
            kubectl apply -f k8s/dev/frontend-deployment.yaml
+           kubectl set image deployment/frontend-deployment frontend=${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}
