@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: 901602271390.dkr.ecr.us-east-1.amazonaws.com/nodejs-three-tier-dev-app:frontend-${GITHUB_SHA}
+          image: 901602271390.dkr.ecr.us-east-1.amazonaws.com/nodejs-three-tier-dev-app:frontend
           ports:
             - containerPort: 3000
           env:
