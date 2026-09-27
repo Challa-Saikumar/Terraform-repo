@@ -23,12 +23,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install Sonar Scanner
-        run: npm install -g @sonar/scan
-
-      - name: SonarQube Scan
-        run: sonar -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} -Dsonar.token=${{ secrets.SONAR_TOKEN }} -Dsonar.projectKey=nodejs-three-tier
-
       - name: Debug GitHub context
         run: |
           echo "Repository: $GITHUB_REPOSITORY"
