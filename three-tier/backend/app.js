@@ -11,9 +11,12 @@ const db = mysql.createConnection({
 });
 
 app.get('/api', (req, res) => {
-  db.query('SELECT NOW() AS current_time', (err, results) => {
+  db.query('SELECT NOW() AS currentTime', (err, results) => {
     if (err) return res.status(500).send(err);
-    res.json({ message: "Backend connected to DB!", time: results[0].current_time });
+    res.json({
+      message: "Backend connected to DB!",
+      time: results[0].currentTime
+    });
   });
 });
 
