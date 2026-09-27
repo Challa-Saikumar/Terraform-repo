@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: 901602271390.dkr.ecr.us-east-1.amazonaws.com/nodejs-three-tier-dev-app:backend-${GITHUB_SHA}
+          image: 901602271390.dkr.ecr.us-east-1.amazonaws.com/nodejs-three-tier-dev-app:backend
           ports:
             - containerPort: 4000
           env:
