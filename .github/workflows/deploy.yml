@@ -1,4 +1,4 @@
-name: AWS OIDC Authentication Test
+name: CI-CD Pipeline
 
 on:
   workflow_dispatch:
@@ -13,15 +13,20 @@ on:
           - stage
 
 jobs:
-  auth-test:
+  deploy:
     runs-on: ubuntu-latest
+
     permissions:
-      id-token: write   # required for OIDC
-      contents: read    # required for actions/checkout
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      # -----------------------------
+      # SonarQube
+      # -----------------------------
 
       - name: SonarQube Scan
         run: npx @sonar/scan -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} -Dsonar.token=${{ secrets.SONAR_TOKEN }} -Dsonar.projectKey=nodejs-three-tier
@@ -30,8 +35,12 @@ jobs:
         uses: SonarSource/sonarqube-quality-gate-action@v1
         timeout-minutes: 5
         env:
-         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-         SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      # -----------------------------
+      # Debug GitHub
+      # -----------------------------
 
       - name: Debug GitHub context
         run: |
@@ -40,6 +49,10 @@ jobs:
           echo "Branch: $GITHUB_REF_NAME"
           echo "Workflow: $GITHUB_WORKFLOW"
           echo "Actor: $GITHUB_ACTOR"
+
+      # -----------------------------
+      # AWS OIDC
+      # -----------------------------
 
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -53,27 +66,68 @@ jobs:
       - name: Print selected environment
         run: echo "Deploying to ${{ github.event.inputs.environment }} environment"
 
+      # -----------------------------
+      # ECR Login
+      # -----------------------------
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag, and push backend image
-        run: |
-          docker build -t ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }} ./three-tier/backend
-          docker push ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}
+      # -----------------------------
+      # Install Trivy
+      # -----------------------------
 
-      - name: Build, tag, and push frontend image
+      - name: Install Trivy
         run: |
-          docker build -t ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }} ./three-tier/frontend
-          docker push ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg
+          wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+      # -----------------------------
+      # Backend
+      # -----------------------------
+
+      - name: Build backend image
+        run: docker build -t ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }} ./three-tier/backend
+
+      - name: Scan backend image with Trivy
+        run: trivy image --severity HIGH,CRITICAL --exit-code 1 ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}
+
+      - name: Push backend image
+        run: docker push ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}
+
+      # -----------------------------
+      # Frontend
+      # -----------------------------
+
+      - name: Build frontend image
+        run: docker build -t ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }} ./three-tier/frontend
+
+      - name: Scan frontend image with Trivy
+        run: trivy image --severity HIGH,CRITICAL --exit-code 1 ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}
+
+      - name: Push frontend image
+        run: docker push ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}
+
+      # -----------------------------
+      # Kubernetes
+      # -----------------------------
 
       - name: Configure kubectl
         run: aws eks update-kubeconfig --region us-east-1 --name nodejs-three-tier-dev-eks
 
+      # -----------------------------
+      # Deploy to EKS
+      # -----------------------------
+
       - name: Deploy to EKS
         run: |
-           kubectl apply -f k8s/dev/db-secrets.yaml
-           kubectl apply -f k8s/dev/backend-deployment.yaml
-           kubectl set image deployment/backend-deployment backend=${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}
-           kubectl apply -f k8s/dev/frontend-deployment.yaml
-           kubectl set image deployment/frontend-deployment frontend=${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}
+          kubectl apply -f k8s/dev/db-secrets.yaml
+          kubectl apply -f k8s/dev/backend-deployment.yaml
+          kubectl set image deployment/backend-deployment backend=${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}
+          kubectl apply -f k8s/dev/frontend-deployment.yaml
+          kubectl set image deployment/frontend-deployment frontend=${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}
