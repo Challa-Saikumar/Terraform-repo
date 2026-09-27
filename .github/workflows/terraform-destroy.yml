@@ -1,0 +1,49 @@
+name: Terraform Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select Environment to Destroy"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - stage
+
+env:
+  TF_ROOT: infra/terraform
+
+jobs:
+  destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    environment:
+      name: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::901602271390:role/TerraformRepo-GitHubActionsRole
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_ROOT }}
+        run: terraform init -backend-config=../environments/${{ github.event.inputs.environment }}/backend.tfvars
+
+      - name: Terraform Destroy
+        working-directory: ${{ env.TF_ROOT }}
+        run: terraform destroy -auto-approve -var-file=../environments/${{ github.event.inputs.environment }}/terraform.tfvars
