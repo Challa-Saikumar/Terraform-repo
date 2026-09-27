@@ -1,5 +1,6 @@
 resource "aws_ecr_repository" "nodejs_app" {
   name                 = "${local.name_prefix}-app"
+  force_delete = true
   image_tag_mutability = var.ecr_image_tag_mutability
 
   image_scanning_configuration {
