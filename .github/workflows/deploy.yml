@@ -24,8 +24,8 @@ jobs:
         uses: actions/checkout@v3
 
       - name: SonarQube Scan
-        run: sonar -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} -Dsonar.token=${{ secrets.SONAR_TOKEN }} -Dsonar.projectKey=nodejs-three-tier
-
+        run: npx @sonar/scan -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} -Dsonar.token=${{ secrets.SONAR_TOKEN }} -Dsonar.projectKey=nodejs-three-tier
+      
       - name: Debug GitHub context
         run: |
           echo "Repository: $GITHUB_REPOSITORY"
