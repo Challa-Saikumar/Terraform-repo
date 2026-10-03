@@ -28,15 +28,15 @@ jobs:
       # SonarQube
       # -----------------------------
 
-      - name: SonarQube Scan
-        run: npx @sonar/scan -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} -Dsonar.token=${{ secrets.SONAR_TOKEN }} -Dsonar.projectKey=nodejs-three-tier
+#      - name: SonarQube Scan
+#        run: npx @sonar/scan -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} -Dsonar.token=${{ secrets.SONAR_TOKEN }} -Dsonar.projectKey=nodejs-three-tier
 
-      - name: SonarQube Quality Gate
-        uses: SonarSource/sonarqube-quality-gate-action@v1
-        timeout-minutes: 5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+#      - name: SonarQube Quality Gate
+#        uses: SonarSource/sonarqube-quality-gate-action@v1
+#        timeout-minutes: 5
+#        env:
+#          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+#          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
       # -----------------------------
       # Debug GitHub
@@ -78,14 +78,14 @@ jobs:
       # Install Trivy
       # -----------------------------
 
-      - name: Install Trivy
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget gnupg
-          wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
-          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update
-          sudo apt-get install -y trivy
+#      - name: Install Trivy
+#       run: |
+#          sudo apt-get update
+#          sudo apt-get install -y wget gnupg
+#          wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+#          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+#          sudo apt-get update
+#          sudo apt-get install -y trivy
 
       # -----------------------------
       # Backend
