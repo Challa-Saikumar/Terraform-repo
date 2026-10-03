@@ -116,6 +116,22 @@ jobs:
       - name: Configure kubectl
         run: aws eks update-kubeconfig --region us-east-1 --name nodejs-three-tier-dev-eks
 
+      - name: Install External Secrets Operator
+        run: |
+          helm repo add external-secrets https://charts.external-secrets.io
+          helm repo update
+
+          helm upgrade --install external-secrets \
+            external-secrets/external-secrets \
+            --namespace external-secrets \
+            --create-namespace \
+            --wait
+
+      - name: Verify External Secrets Operator
+        run: |
+          kubectl get pods -n external-secrets
+          kubectl get serviceaccount -n external-secrets
+
       # -----------------------------
       # Deploy to EKS
       # -----------------------------
