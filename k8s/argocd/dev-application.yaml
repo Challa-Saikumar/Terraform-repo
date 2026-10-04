@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: three-tier-dev
+  namespace: argocd
+
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/Challa-Saikumar/Terraform-repo.git
+    targetRevision: main
+    path: k8s/dev
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
