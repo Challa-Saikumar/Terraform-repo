@@ -10,7 +10,7 @@ project: default
 
 source:
 repoURL: https://github.com/Challa-Saikumar/Terraform-repo.git
-targetRevision: main
+targetRevision: feature-branch
 path: k8s/dev
 
 destination:
