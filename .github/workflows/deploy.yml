@@ -14,12 +14,12 @@ on:
 
 jobs:
   build-and-push:
-    name: Build and Push Images
+    name: Build, Push and Configure Argo CD
     runs-on: ubuntu-latest
 
     permissions:
       id-token: write
-      contents: read
+      contents: write
 
     steps:
 
@@ -70,7 +70,8 @@ jobs:
           aws-region: us-east-1
 
       - name: Verify AWS identity
-        run: aws sts get-caller-identity
+        run: |
+          aws sts get-caller-identity
 
       # -----------------------------
       # Environment
@@ -78,7 +79,70 @@ jobs:
 
       - name: Print selected environment
         run: |
-          echo "Deploying to ${{ github.event.inputs.environment }} environment"
+          echo "Selected environment: ${{ github.event.inputs.environment }}"
+
+      # -----------------------------
+      # Configure kubectl
+      # -----------------------------
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --region us-east-1 \
+            --name nodejs-three-tier-dev-eks
+
+      - name: Verify EKS connection
+        run: |
+          kubectl get nodes
+
+      # -----------------------------
+      # Install Argo CD
+      # -----------------------------
+
+      - name: Install Argo CD
+        run: |
+          kubectl create namespace argocd \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+          kubectl apply \
+            -n argocd \
+            -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+          kubectl wait \
+            --for=condition=Available \
+            deployment/argocd-server \
+            -n argocd \
+            --timeout=300s
+
+      # -----------------------------
+      # Verify Argo CD
+      # -----------------------------
+
+      - name: Verify Argo CD
+        run: |
+          kubectl get pods -n argocd
+          kubectl get svc -n argocd
+
+      # -----------------------------
+      # Configure GitHub Repository
+      # -----------------------------
+
+      - name: Configure Argo CD GitHub repository
+        run: |
+          kubectl create secret generic github-repo \
+            --namespace argocd \
+            --from-literal=type=git \
+            --from-literal=url=https://github.com/Challa-Saikumar/Terraform-repo.git \
+            --from-literal=username="${{ secrets.ARGOCD_GITHUB_USERNAME }}" \
+            --from-literal=password="${{ secrets.ARGOCD_GITHUB_TOKEN }}" \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+          kubectl label secret github-repo \
+            -n argocd \
+            argocd.argoproj.io/secret-type=repository \
+            --overwrite
 
       # -----------------------------
       # ECR Login
@@ -96,6 +160,7 @@ jobs:
       #   run: |
       #     sudo apt-get update
       #     sudo apt-get install -y wget gnupg
+      #
       #     wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key \
       #       | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
       #
@@ -137,54 +202,89 @@ jobs:
             ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}
 
       # -----------------------------
-      # Deployment
-      # -----------------------------
-      #
-      # Deployment is intentionally NOT
-      # performed by GitHub Actions.
-      #
-      # Argo CD will deploy the
-      # Kubernetes manifests to EKS.
-      #
+      # Update GitOps Image Tags
       # -----------------------------
 
-      - name: Build completed
+      - name: Update backend image tag
         run: |
-          echo "Backend image:"
-          echo "${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}"
+          sed -i "s|image: .*nodejs-three-tier-dev-app:backend.*|image: ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}|" \
+            k8s/dev/backend-deployment.yaml
 
-          echo "Frontend image:"
-          echo "${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}"
-
-          echo "Images pushed successfully."
-          echo "Argo CD will handle deployment to EKS."
-
-      - name: Configure kubectl
+      - name: Update frontend image tag
         run: |
-          aws eks update-kubeconfig \
-            --region us-east-1 \
-            --name nodejs-three-tier-dev-eks
+          sed -i "s|image: .*nodejs-three-tier-dev-app:frontend.*|image: ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}|" \
+            k8s/dev/frontend-deployment.yaml
 
-      - name: Install Argo CD
+      # -----------------------------
+      # Show Changes
+      # -----------------------------
+
+      - name: Show GitOps changes
         run: |
-          kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+          echo "Backend deployment:"
+          grep "image:" k8s/dev/backend-deployment.yaml
 
-          kubectl apply \
-            -n argocd \
-            -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+          echo "Frontend deployment:"
+          grep "image:" k8s/dev/frontend-deployment.yaml
 
-          kubectl wait \
-            --for=condition=Available \
-            deployment/argocd-server \
-            -n argocd \
-            --timeout=300s
+      # -----------------------------
+      # Commit and Push GitOps Changes
+      # -----------------------------
 
-      - name: Verify Argo CD
+      - name: Commit and push GitOps changes
         run: |
-          kubectl get pods -n argocd
-          kubectl get svc -n argocd
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add k8s/dev/backend-deployment.yaml
+          git add k8s/dev/frontend-deployment.yaml
+
+          git commit \
+            -m "Update application images to ${GITHUB_SHA}" \
+            || echo "No changes to commit"
+
+          git push origin HEAD:${GITHUB_REF_NAME}
+
+      # -----------------------------
+      # Create Argo CD Application
+      # -----------------------------
 
       - name: Create Argo CD Application
         run: |
-          kubectl apply -f k8s/argocd/dev-application.yaml
-        
+          kubectl apply \
+            -f k8s/argocd/dev-application.yaml
+
+      # -----------------------------
+      # Verify Argo CD Application
+      # -----------------------------
+
+      - name: Verify Argo CD Application
+        run: |
+          kubectl get application \
+            -n argocd \
+            three-tier-dev
+
+          kubectl get application \
+            -n argocd \
+            three-tier-dev \
+            -o wide
+
+      # -----------------------------
+      # Pipeline Completed
+      # -----------------------------
+
+      - name: Pipeline completed
+        run: |
+          echo "=========================================="
+          echo "CI/CD PIPELINE COMPLETED"
+          echo "=========================================="
+          echo ""
+          echo "Backend image:"
+          echo "${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}"
+          echo ""
+          echo "Frontend image:"
+          echo "${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}"
+          echo ""
+          echo "GitOps manifests updated."
+          echo "Argo CD Application created/updated."
+          echo "Argo CD will deploy the application to EKS."
