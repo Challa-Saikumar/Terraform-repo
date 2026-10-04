@@ -191,7 +191,3 @@ jobs:
           terraform destroy \
             -auto-approve \
             -var-file=../environments/${{ inputs.environment }}/terraform.tfvars
-
-```
-
-so it will destroy the Terraform-managed **dev infrastructure**.
