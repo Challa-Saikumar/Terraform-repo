@@ -15,6 +15,7 @@ on:
 env:
   TF_ROOT: infra/terraform
   AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: nodejs-three-tier-dev-eks
 
 jobs:
   destroy:
@@ -26,7 +27,7 @@ jobs:
       contents: read
 
     environment:
-      name: ${{ github.event.inputs.environment }}
+      name: ${{ inputs.environment }}
 
     steps:
 
@@ -61,35 +62,24 @@ jobs:
         working-directory: ${{ env.TF_ROOT }}
         run: |
           terraform init \
-            -backend-config=../environments/${{ github.event.inputs.environment }}/backend.tfvars
+            -backend-config=../environments/${{ inputs.environment }}/backend.tfvars
 
 
       # --------------------------------------------------
-      # 5. Get EKS Cluster Name
-      # --------------------------------------------------
-      - name: Get EKS Cluster Name
-        id: eks
-        working-directory: ${{ env.TF_ROOT }}
-        run: |
-          CLUSTER_NAME=$(terraform output -raw cluster_name)
-
-          echo "EKS Cluster: $CLUSTER_NAME"
-
-          echo "cluster_name=$CLUSTER_NAME" >> "$GITHUB_OUTPUT"
-
-
-      # --------------------------------------------------
-      # 6. Configure kubectl
+      # 5. Configure kubectl
       # --------------------------------------------------
       - name: Configure kubectl
         run: |
+          echo "Connecting to EKS cluster..."
+          echo "Cluster: ${{ env.EKS_CLUSTER_NAME }}"
+
           aws eks update-kubeconfig \
             --region ${{ env.AWS_REGION }} \
-            --name "${{ steps.eks.outputs.cluster_name }}"
+            --name "${{ env.EKS_CLUSTER_NAME }}"
 
 
       # --------------------------------------------------
-      # 7. Check Kubernetes Resources
+      # 6. Check Kubernetes Cluster
       # --------------------------------------------------
       - name: Check Kubernetes Resources
         run: |
@@ -101,7 +91,7 @@ jobs:
 
           echo ""
           echo "=========================================="
-          echo "Kubernetes LoadBalancer Services"
+          echo "LoadBalancer Services"
           echo "=========================================="
 
           kubectl get svc -A \
@@ -109,7 +99,7 @@ jobs:
 
 
       # --------------------------------------------------
-      # 8. Delete Argo CD Application
+      # 7. Delete Argo CD Application
       # --------------------------------------------------
       - name: Delete Argo CD Application
         run: |
@@ -121,9 +111,9 @@ jobs:
 
 
       # --------------------------------------------------
-      # 9. Delete Application LoadBalancers
+      # 8. Delete Frontend LoadBalancer
       # --------------------------------------------------
-      - name: Delete Application LoadBalancers
+      - name: Delete Frontend LoadBalancer
         run: |
           echo "Deleting frontend LoadBalancer..."
 
@@ -131,6 +121,12 @@ jobs:
             -n default \
             --ignore-not-found=true || true
 
+
+      # --------------------------------------------------
+      # 9. Delete Argo CD LoadBalancer
+      # --------------------------------------------------
+      - name: Delete Argo CD LoadBalancer
+        run: |
           echo "Deleting Argo CD LoadBalancer..."
 
           kubectl delete service argocd-server \
@@ -139,11 +135,11 @@ jobs:
 
 
       # --------------------------------------------------
-      # 10. Wait for Kubernetes LoadBalancers
+      # 10. Wait for LoadBalancers to be Removed
       # --------------------------------------------------
       - name: Wait for LoadBalancers
         run: |
-          echo "Waiting for LoadBalancers to be removed..."
+          echo "Waiting for Kubernetes LoadBalancers to disappear..."
 
           for i in {1..30}; do
 
@@ -168,7 +164,7 @@ jobs:
 
 
       # --------------------------------------------------
-      # 11. Show Remaining Kubernetes Resources
+      # 11. Check Remaining Kubernetes Resources
       # --------------------------------------------------
       - name: Check Remaining Kubernetes Resources
         run: |
@@ -194,4 +190,8 @@ jobs:
         run: |
           terraform destroy \
             -auto-approve \
-            -var-file=../environments/${{ github.event.inputs.environment }}/terraform.tfvars
+            -var-file=../environments/${{ inputs.environment }}/terraform.tfvars
+
+```
+
+so it will destroy the Terraform-managed **dev infrastructure**.
