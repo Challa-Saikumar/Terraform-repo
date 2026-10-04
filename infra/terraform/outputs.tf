@@ -1,76 +1,199 @@
-output "aws_region" {
-  description = "AWS region used by the infrastructure"
-  value       = var.aws_region
-}
+```yaml
+name: Terraform Destroy
 
-output "vpc_id" {
-  description = "ID of the project VPC"
-  value       = aws_vpc.main.id
-}
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select Environment to Destroy"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - stage
 
-output "public_subnet_ids" {
-  description = "IDs of public subnets"
-  value       = aws_subnet.public[*].id
-}
+env:
+  TF_ROOT: infra/terraform
+  AWS_REGION: us-east-1
 
-output "private_subnet_ids" {
-  description = "IDs of private EKS subnets"
-  value       = aws_subnet.private[*].id
-}
+jobs:
+  destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
 
-output "database_subnet_ids" {
-  description = "IDs of private database subnets"
-  value       = aws_subnet.database[*].id
-}
+    permissions:
+      id-token: write
+      contents: read
 
-output "eks_cluster_name" {
-  description = "EKS cluster name"
-  value       = aws_eks_cluster.main.name
-}
+    environment:
+      name: ${{ github.event.inputs.environment }}
 
-output "eks_cluster_endpoint" {
-  description = "EKS Kubernetes API endpoint"
-  value       = aws_eks_cluster.main.endpoint
-  sensitive   = true
-}
+    steps:
 
-output "eks_cluster_security_group_id" {
-  description = "Security group created for the EKS cluster"
-  value       = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
-}
+      # --------------------------------------------------
+      # 1. Checkout Code
+      # --------------------------------------------------
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-output "eks_node_role_arn" {
-  description = "IAM role ARN used by EKS worker nodes"
-  value       = aws_iam_role.eks_node.arn
-}
 
-output "ecr_repository_name" {
-  description = "ECR repository name"
-  value       = aws_ecr_repository.nodejs_app.name
-}
+      # --------------------------------------------------
+      # 2. Configure AWS Credentials
+      # --------------------------------------------------
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::901602271390:role/TerraformRepo-GitHubActionsRole
+          aws-region: ${{ env.AWS_REGION }}
 
-output "ecr_repository_url" {
-  description = "ECR repository URL used by the application pipeline"
-  value       = aws_ecr_repository.nodejs_app.repository_url
-}
 
-output "rds_endpoint" {
-  description = "RDS connection endpoint"
-  value       = aws_db_instance.main.address
-  sensitive   = true
-}
+      # --------------------------------------------------
+      # 3. Setup Terraform
+      # --------------------------------------------------
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
-output "rds_port" {
-  description = "RDS database port"
-  value       = aws_db_instance.main.port
-}
 
-output "database_secret_arn" {
-  description = "ARN of the Secrets Manager database secret"
-  value       = aws_secretsmanager_secret.database.arn
-}
+      # --------------------------------------------------
+      # 4. Terraform Init
+      # --------------------------------------------------
+      - name: Terraform Init
+        working-directory: ${{ env.TF_ROOT }}
+        run: |
+          terraform init \
+            -backend-config=../environments/${{ github.event.inputs.environment }}/backend.tfvars
 
-output "configure_kubectl_command" {
-  description = "Command for configuring kubectl"
-  value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${aws_eks_cluster.main.name}"
-}
+
+      # --------------------------------------------------
+      # 5. Get EKS Cluster Name
+      # --------------------------------------------------
+      - name: Get EKS Cluster Name
+        id: eks
+        working-directory: ${{ env.TF_ROOT }}
+        run: |
+          CLUSTER_NAME=$(terraform output -raw cluster_name)
+
+          echo "EKS Cluster: $CLUSTER_NAME"
+
+          echo "cluster_name=$CLUSTER_NAME" >> "$GITHUB_OUTPUT"
+
+
+      # --------------------------------------------------
+      # 6. Configure kubectl
+      # --------------------------------------------------
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_REGION }} \
+            --name "${{ steps.eks.outputs.cluster_name }}"
+
+
+      # --------------------------------------------------
+      # 7. Check Kubernetes Resources
+      # --------------------------------------------------
+      - name: Check Kubernetes Resources
+        run: |
+          echo "=========================================="
+          echo "Kubernetes Nodes"
+          echo "=========================================="
+
+          kubectl get nodes
+
+          echo ""
+          echo "=========================================="
+          echo "Kubernetes LoadBalancer Services"
+          echo "=========================================="
+
+          kubectl get svc -A \
+            --field-selector spec.type=LoadBalancer || true
+
+
+      # --------------------------------------------------
+      # 8. Delete Argo CD Application
+      # --------------------------------------------------
+      - name: Delete Argo CD Application
+        run: |
+          echo "Deleting Argo CD Application..."
+
+          kubectl delete application three-tier-dev \
+            -n argocd \
+            --ignore-not-found=true || true
+
+
+      # --------------------------------------------------
+      # 9. Delete Application LoadBalancers
+      # --------------------------------------------------
+      - name: Delete Application LoadBalancers
+        run: |
+          echo "Deleting frontend LoadBalancer..."
+
+          kubectl delete service frontend-service \
+            -n default \
+            --ignore-not-found=true || true
+
+          echo "Deleting Argo CD LoadBalancer..."
+
+          kubectl delete service argocd-server \
+            -n argocd \
+            --ignore-not-found=true || true
+
+
+      # --------------------------------------------------
+      # 10. Wait for Kubernetes LoadBalancers
+      # --------------------------------------------------
+      - name: Wait for LoadBalancers
+        run: |
+          echo "Waiting for LoadBalancers to be removed..."
+
+          for i in {1..30}; do
+
+            echo ""
+            echo "Check $i/30"
+
+            COUNT=$(kubectl get svc -A \
+              --field-selector spec.type=LoadBalancer \
+              --no-headers 2>/dev/null | wc -l)
+
+            echo "Remaining LoadBalancer services: $COUNT"
+
+            if [ "$COUNT" -eq 0 ]; then
+              echo ""
+              echo "All Kubernetes LoadBalancer services are deleted."
+              break
+            fi
+
+            sleep 10
+
+          done
+
+
+      # --------------------------------------------------
+      # 11. Show Remaining Kubernetes Resources
+      # --------------------------------------------------
+      - name: Check Remaining Kubernetes Resources
+        run: |
+          echo "=========================================="
+          echo "Remaining Services"
+          echo "=========================================="
+
+          kubectl get svc -A || true
+
+          echo ""
+          echo "=========================================="
+          echo "Remaining Pods"
+          echo "=========================================="
+
+          kubectl get pods -A || true
+
+
+      # --------------------------------------------------
+      # 12. Terraform Destroy
+      # --------------------------------------------------
+      - name: Terraform Destroy
+        working-directory: ${{ env.TF_ROOT }}
+        run: |
+          terraform destroy \
+            -auto-approve \
+            -var-file=../environments/${{ github.event.inputs.environment }}/terraform.tfvars
+```
