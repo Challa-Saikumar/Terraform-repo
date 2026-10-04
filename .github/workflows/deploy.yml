@@ -13,6 +13,7 @@ on:
           - stage
 
 jobs:
+
   build-and-push:
     name: Build, Push and Configure Argo CD
     runs-on: ubuntu-latest
@@ -23,34 +24,16 @@ jobs:
 
     steps:
 
-      # -----------------------------
-      # Checkout
-      # -----------------------------
-
+      # --------------------------------------------------
+      # 1. Checkout Repository
+      # --------------------------------------------------
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # -----------------------------
-      # SonarQube
-      # -----------------------------
 
-      # - name: SonarQube Scan
-      #   run: npx @sonar/scan \
-      #     -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
-      #     -Dsonar.token=${{ secrets.SONAR_TOKEN }} \
-      #     -Dsonar.projectKey=nodejs-three-tier
-
-      # - name: SonarQube Quality Gate
-      #   uses: SonarSource/sonarqube-quality-gate-action@v1
-      #   timeout-minutes: 5
-      #   env:
-      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      #     SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-
-      # -----------------------------
-      # Debug GitHub
-      # -----------------------------
-
+      # --------------------------------------------------
+      # 2. Debug GitHub Context
+      # --------------------------------------------------
       - name: Debug GitHub context
         run: |
           echo "Repository: $GITHUB_REPOSITORY"
@@ -59,75 +42,109 @@ jobs:
           echo "Workflow: $GITHUB_WORKFLOW"
           echo "Actor: $GITHUB_ACTOR"
 
-      # -----------------------------
-      # AWS OIDC
-      # -----------------------------
 
+      # --------------------------------------------------
+      # 3. Configure AWS using GitHub OIDC
+      # --------------------------------------------------
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::901602271390:role/TerraformRepo-GitHubActionsRole
           aws-region: us-east-1
 
+
+      # --------------------------------------------------
+      # 4. Verify AWS
+      # --------------------------------------------------
       - name: Verify AWS identity
         run: |
           aws sts get-caller-identity
 
-      # -----------------------------
-      # Environment
-      # -----------------------------
 
+      # --------------------------------------------------
+      # 5. Show Selected Environment
+      # --------------------------------------------------
       - name: Print selected environment
         run: |
           echo "Selected environment: ${{ github.event.inputs.environment }}"
 
-      # -----------------------------
-      # Configure kubectl
-      # -----------------------------
 
+      # --------------------------------------------------
+      # 6. Configure kubectl for EKS
+      # --------------------------------------------------
       - name: Configure kubectl
         run: |
           aws eks update-kubeconfig \
             --region us-east-1 \
             --name nodejs-three-tier-dev-eks
 
+
+      # --------------------------------------------------
+      # 7. Verify EKS Connection
+      # --------------------------------------------------
       - name: Verify EKS connection
         run: |
           kubectl get nodes
 
-      # -----------------------------
-      # Install Argo CD
-      # -----------------------------
 
-      - name: Install Argo CD
+      # --------------------------------------------------
+      # 8. Create Argo CD Namespace
+      # --------------------------------------------------
+      - name: Create Argo CD namespace
         run: |
           kubectl create namespace argocd \
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
+
+      # --------------------------------------------------
+      # 9. Install Argo CD
+      #
+      # IMPORTANT:
+      # --server-side avoids the
+      # "metadata.annotations: Too long" error
+      # --------------------------------------------------
+      - name: Install Argo CD
+        run: |
           kubectl apply \
+            --server-side \
+            --force-conflicts \
             -n argocd \
             -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
+
+      # --------------------------------------------------
+      # 10. Wait for Argo CD Server
+      # --------------------------------------------------
+      - name: Wait for Argo CD
+        run: |
           kubectl wait \
             --for=condition=Available \
             deployment/argocd-server \
             -n argocd \
             --timeout=300s
 
-      # -----------------------------
-      # Verify Argo CD
-      # -----------------------------
 
+      # --------------------------------------------------
+      # 11. Verify Argo CD
+      # --------------------------------------------------
       - name: Verify Argo CD
         run: |
+          echo "Argo CD Pods:"
           kubectl get pods -n argocd
+
+          echo ""
+          echo "Argo CD Services:"
           kubectl get svc -n argocd
 
-      # -----------------------------
-      # Configure GitHub Repository
-      # -----------------------------
+          echo ""
+          echo "Argo CD CRDs:"
+          kubectl get crd | grep argoproj.io
 
+
+      # --------------------------------------------------
+      # 12. Configure GitHub Repository for Argo CD
+      # --------------------------------------------------
       - name: Configure Argo CD GitHub repository
         run: |
           kubectl create secret generic github-repo \
@@ -144,93 +161,89 @@ jobs:
             argocd.argoproj.io/secret-type=repository \
             --overwrite
 
-      # -----------------------------
-      # ECR Login
-      # -----------------------------
 
+      # --------------------------------------------------
+      # 13. Login to Amazon ECR
+      # --------------------------------------------------
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # -----------------------------
-      # Trivy
-      # -----------------------------
 
-      # - name: Install Trivy
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y wget gnupg
-      #
-      #     wget -qO- https://aquasecurity.github.io/trivy-repo/deb/public.key \
-      #       | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
-      #
-      #     echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] \
-      #       https://aquasecurity.github.io/trivy-repo/deb generic main" \
-      #       | sudo tee /etc/apt/sources.list.d/trivy.list
-      #
-      #     sudo apt-get update
-      #     sudo apt-get install -y trivy
-
-      # -----------------------------
-      # Backend
-      # -----------------------------
-
+      # --------------------------------------------------
+      # 14. Build Backend Image
+      # --------------------------------------------------
       - name: Build backend image
         run: |
           docker build \
             -t ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }} \
             ./three-tier/backend
 
+
+      # --------------------------------------------------
+      # 15. Push Backend Image
+      # --------------------------------------------------
       - name: Push backend image
         run: |
           docker push \
             ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}
 
-      # -----------------------------
-      # Frontend
-      # -----------------------------
 
+      # --------------------------------------------------
+      # 16. Build Frontend Image
+      # --------------------------------------------------
       - name: Build frontend image
         run: |
           docker build \
             -t ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }} \
             ./three-tier/frontend
 
+
+      # --------------------------------------------------
+      # 17. Push Frontend Image
+      # --------------------------------------------------
       - name: Push frontend image
         run: |
           docker push \
             ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}
 
-      # -----------------------------
-      # Update GitOps Image Tags
-      # -----------------------------
 
+      # --------------------------------------------------
+      # 18. Update Backend Image Tag in Git
+      # --------------------------------------------------
       - name: Update backend image tag
         run: |
           sed -i "s|image: .*nodejs-three-tier-dev-app:backend.*|image: ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}|" \
             k8s/dev/backend-deployment.yaml
 
+
+      # --------------------------------------------------
+      # 19. Update Frontend Image Tag in Git
+      # --------------------------------------------------
       - name: Update frontend image tag
         run: |
           sed -i "s|image: .*nodejs-three-tier-dev-app:frontend.*|image: ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}|" \
             k8s/dev/frontend-deployment.yaml
 
-      # -----------------------------
-      # Show Changes
-      # -----------------------------
 
+      # --------------------------------------------------
+      # 20. Show GitOps Changes
+      # --------------------------------------------------
       - name: Show GitOps changes
         run: |
-          echo "Backend deployment:"
+          echo "=========================================="
+          echo "Backend deployment image:"
           grep "image:" k8s/dev/backend-deployment.yaml
 
-          echo "Frontend deployment:"
+          echo ""
+          echo "Frontend deployment image:"
           grep "image:" k8s/dev/frontend-deployment.yaml
+          echo "=========================================="
 
-      # -----------------------------
-      # Commit and Push GitOps Changes
-      # -----------------------------
 
+      # --------------------------------------------------
+      # 21. Commit and Push GitOps Changes
+      # --------------------------------------------------
       - name: Commit and push GitOps changes
         run: |
           git config user.name "github-actions[bot]"
@@ -245,46 +258,58 @@ jobs:
 
           git push origin HEAD:${GITHUB_REF_NAME}
 
-      # -----------------------------
-      # Create Argo CD Application
-      # -----------------------------
 
+      # --------------------------------------------------
+      # 22. Create Argo CD Application
+      # --------------------------------------------------
       - name: Create Argo CD Application
         run: |
           kubectl apply \
             -f k8s/argocd/dev-application.yaml
 
-      # -----------------------------
-      # Verify Argo CD Application
-      # -----------------------------
 
+      # --------------------------------------------------
+      # 23. Verify Argo CD Application
+      # --------------------------------------------------
       - name: Verify Argo CD Application
         run: |
+          echo "Argo CD Application:"
           kubectl get application \
             -n argocd \
             three-tier-dev
 
+          echo ""
+          echo "Application details:"
           kubectl get application \
             -n argocd \
             three-tier-dev \
             -o wide
 
-      # -----------------------------
-      # Pipeline Completed
-      # -----------------------------
 
+      # --------------------------------------------------
+      # 24. Final Output
+      # --------------------------------------------------
       - name: Pipeline completed
         run: |
+          echo ""
           echo "=========================================="
-          echo "CI/CD PIPELINE COMPLETED"
+          echo "       CI/CD PIPELINE COMPLETED"
           echo "=========================================="
           echo ""
+
           echo "Backend image:"
           echo "${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}"
+
           echo ""
+
           echo "Frontend image:"
           echo "${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}"
+
           echo ""
+
           echo "GitOps manifests updated."
           echo "Argo CD Application created/updated."
           echo "Argo CD will deploy the application to EKS."
+
+          echo ""
+          echo "=========================================="
