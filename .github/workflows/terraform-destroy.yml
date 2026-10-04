@@ -1,4 +1,3 @@
-```yaml
 name: Terraform Destroy
 
 on:
@@ -196,4 +195,3 @@ jobs:
           terraform destroy \
             -auto-approve \
             -var-file=../environments/${{ github.event.inputs.environment }}/terraform.tfvars
-```
