@@ -87,7 +87,7 @@ variable "node_capacity_type" {
 variable "node_desired_size" {
   description = "Desired number of EKS worker nodes"
   type        = number
-  default     = 3
+  default     = 1
 }
 
 variable "node_min_size" {
