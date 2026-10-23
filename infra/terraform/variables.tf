@@ -99,7 +99,7 @@ variable "node_min_size" {
 variable "node_max_size" {
   description = "Maximum number of EKS worker nodes"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "ecr_image_tag_mutability" {
