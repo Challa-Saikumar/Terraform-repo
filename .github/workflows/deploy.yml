@@ -30,7 +30,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-
+      # --------------------------------------------------
+      # Install SonarQube SRUTHY ADDED REMOVE THIS IF IT GIVES ERROR
+      # --------------------------------------------------
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}    
+    
       # --------------------------------------------------
       # 2. Debug GitHub Context
       # --------------------------------------------------
@@ -89,44 +97,7 @@ jobs:
           helm repo update
           helm upgrade --install external-secrets external-secrets/external-secrets --namespace external-secrets --create-namespace --wait --timeout 5m
 
-      # --------------------------------------------------
-      # Install SonarQube SRUTHY ADDED REMOVE THIS IF IT GIVES ERROR
-      # --------------------------------------------------
-      - name: Create SonarQube Namespace
-        run: |
-          kubectl create namespace sonarqube \
-            --dry-run=client \
-            -o yaml | kubectl apply -f -
-
-      - name: Remove Failed SonarQube Release
-        run: |
-          helm status sonarqube -n sonarqube || true
-          helm uninstall sonarqube -n sonarqube --wait --timeout 5m
-
-      - name: Add SonarQube Helm Repository
-        run: |
-          helm repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
-          helm repo update
-
-      - name: Install SonarQube
-        run: |
-          helm upgrade --install sonarqube sonarqube/sonarqube \
-            --namespace sonarqube \
-            --set edition="" \
-            --set community.enabled=true \
-            --set monitoringPasscode=sonar-monitor-passcode \
-
-      - name: Expose SonarQube
-        run: |
-          kubectl patch svc sonarqube-sonarqube \
-            -n sonarqube \
-            -p '{"spec":{"type":"LoadBalancer"}}' || true
-
-      - name: Show SonarQube Endpoint
-        run: |
-          echo "SonarQube Service:"
-          kubectl get svc -n sonarqube
-      
+  
       # --------------------------------------------------
       # 8. Create Argo CD Namespace
       # --------------------------------------------------
