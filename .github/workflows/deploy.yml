@@ -34,6 +34,7 @@ jobs:
           echo "Branch: $GITHUB_REF_NAME"
           echo "Workflow: $GITHUB_WORKFLOW"
           echo "Actor: $GITHUB_ACTOR"
+
       # 3. Configure AWS using GitHub OIDC
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -55,6 +56,7 @@ jobs:
           aws eks update-kubeconfig \
             --region us-east-1 \
             --name nodejs-three-tier-dev-eks
+
       # 7. Verify EKS connection
       - name: Verify EKS connection
         run: kubectl get nodes
@@ -81,12 +83,14 @@ jobs:
           kubectl get pods -n external-secrets
           echo "External Secrets CRDs:"
           kubectl get crd | grep external-secrets.io
+
       # 10. Create Argo CD namespace
       - name: Create Argo CD namespace
         run: |
           kubectl create namespace argocd \
             --dry-run=client \
             -o yaml | kubectl apply -f -
+
       # 11. Install Argo CD
       - name: Install Argo CD
         run: |
@@ -95,6 +99,7 @@ jobs:
             --force-conflicts \
             -n argocd \
             -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
       # 12. Wait for Argo CD server
       - name: Wait for Argo CD
         run: |
@@ -103,6 +108,7 @@ jobs:
             deployment/argocd-server \
             -n argocd \
             --timeout=300s
+
       # 13. Verify Argo CD
       - name: Verify Argo CD
         run: |
@@ -112,6 +118,7 @@ jobs:
           kubectl get svc -n argocd
           echo "Argo CD CRDs:"
           kubectl get crd | grep argoproj.io
+
       # 14. Configure GitHub repository for Argo CD
       - name: Configure Argo CD GitHub repository
         env:
@@ -132,6 +139,7 @@ jobs:
             -n argocd \
             argocd.argoproj.io/secret-type=repository \
             --overwrite
+
       # 15. Login to Amazon ECR
       - name: Login to Amazon ECR
         id: login-ecr
@@ -143,32 +151,38 @@ jobs:
           docker build \
             -t ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }} \
             ./three-tier/backend
+
       # 17. Push backend image
       - name: Push backend image
         run: |
           docker push \
             ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}
+
       # 18. Build frontend image
       - name: Build frontend image
         run: |
           docker build \
             -t ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }} \
             ./three-tier/frontend
+
       # 19. Push frontend image
       - name: Push frontend image
         run: |
           docker push \
             ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}
+
       # 20. Update backend image tag in Git
       - name: Update backend image tag
         run: |
           sed -i "s|image: .*nodejs-three-tier-dev-app:backend.*|image: ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:backend-${{ github.sha }}|" \
             k8s/dev/backend-deployment.yaml
+
       # 21. Update frontend image tag in Git
       - name: Update frontend image tag
         run: |
           sed -i "s|image: .*nodejs-three-tier-dev-app:frontend.*|image: ${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}|" \
             k8s/dev/frontend-deployment.yaml
+
       # 22. Show GitOps changes
       - name: Show GitOps changes
         run: |
@@ -176,6 +190,7 @@ jobs:
           grep "image:" k8s/dev/backend-deployment.yaml
           echo "Frontend deployment image:"
           grep "image:" k8s/dev/frontend-deployment.yaml
+
       # 23. Commit and push GitOps changes
       - name: Commit and push GitOps changes
         run: |
@@ -187,11 +202,13 @@ jobs:
             -m "Update application images to ${GITHUB_SHA}" \
             || echo "No changes to commit"
           git push origin "HEAD:${GITHUB_REF_NAME}"
+
       # 24. Create or update Argo CD application
       - name: Create Argo CD Application
         run: |
           kubectl apply \
             -f k8s/argocd/dev-application.yaml
+
       # 25. Refresh Argo CD application
       - name: Refresh Argo CD application
         run: |
@@ -199,6 +216,7 @@ jobs:
             -n argocd \
             argocd.argoproj.io/refresh=hard \
             --overwrite
+
       # 26. Verify Argo CD application
       - name: Verify Argo CD Application
         run: |
@@ -211,6 +229,7 @@ jobs:
           echo "Application resources:"
           kubectl get deployments,services,externalsecrets,clustersecretstores \
             -A || true
+
       # 27. Final output
       - name: Pipeline completed
         run: |
