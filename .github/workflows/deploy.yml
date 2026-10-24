@@ -83,6 +83,17 @@ jobs:
         with:
           version: "3.17.3"
 
+      - name: Debug EKS Authentication
+        run: |
+          echo "Checking AWS identity..."
+          aws sts get-caller-identity
+
+          echo "Checking kubeconfig context..."
+          kubectl config current-context
+
+          echo "Checking EKS access..."
+          kubectl get nodes
+
       - name: Install External Secrets Operator
         run: |
           helm repo add external-secrets https://charts.external-secrets.io
