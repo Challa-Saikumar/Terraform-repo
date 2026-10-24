@@ -98,6 +98,11 @@ jobs:
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
+      - name: Remove Failed SonarQube Release
+        run: |
+          helm status sonarqube -n sonarqube || true
+          helm uninstall sonarqube -n sonarqube --wait --timeout 5m
+
       - name: Add SonarQube Helm Repository
         run: |
           helm repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
