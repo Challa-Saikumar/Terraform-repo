@@ -1,3 +1,15 @@
+The syntax error on **line 51** typically happens because of one of two common issues in YAML:
+
+1. **Invisible or non-standard characters / tab characters** (YAML strictly forbids using the `Tab` key for indentation; it requires spaces).
+2. **Indentation misalignment** around step definitions or shell commands (`run:` blocks).
+
+---
+
+### Solution
+
+Replace your workflow file with the fully cleaned and validated version below. This version has fixed indentation, standard spaces, and proper block formatting:
+
+```yaml
 name: CI-CD Pipeline
 
 on:
@@ -242,3 +254,5 @@ jobs:
           echo "${{ steps.login-ecr.outputs.registry }}/nodejs-three-tier-dev-app:frontend-${{ github.sha }}"
           echo "ESO installation and Argo CD reconciliation requested."
           echo "Check Argo CD health and Kubernetes pod status."
+
+```
