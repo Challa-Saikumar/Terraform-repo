@@ -107,14 +107,12 @@ jobs:
         run: |
           helm upgrade --install sonarqube sonarqube/sonarqube \
             --namespace sonarqube \
+            --set edition="" \
             --set community.enabled=true \
             --set monitoringPasscode=sonar-monitor-passcode \
-            --set resources.requests.memory=512Mi \
-            --set resources.requests.cpu=250m \
-            --set resources.limits.memory=1Gi \
-            --set resources.limits.cpu=500m \
-            --wait \
-            --timeout 15m
+            --set resources.requests.memory=1536Mi \
+            --set resources.limits.memory=2Gi \
+            --timeout 10m
 
       - name: Expose SonarQube
         run: |
