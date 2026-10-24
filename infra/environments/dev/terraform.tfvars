@@ -36,7 +36,7 @@ ecr_image_retention_count    = 10
 
 db_name                  = "devappdb"
 db_username              = "dbadmin"
-db_instance_class        = "db.t3.micro"
+db_instance_class        = "db.c7i-flex.large"
 db_allocated_storage     = 20
 db_max_allocated_storage = 50
 db_multi_az              = false
