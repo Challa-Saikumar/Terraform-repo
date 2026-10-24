@@ -23,7 +23,7 @@ eks_endpoint_public_access  = true
 eks_endpoint_private_access = true
 
 node_instance_types = [
-  "t3.small"
+  "c7i-flex.large"
 ]
 
 node_capacity_type = "ON_DEMAND"
@@ -36,7 +36,7 @@ ecr_image_retention_count    = 10
 
 db_name                  = "devappdb"
 db_username              = "dbadmin"
-db_instance_class        = "db.c7i-flex.large"
+db_instance_class        = "db.t3.micro"
 db_allocated_storage     = 20
 db_max_allocated_storage = 50
 db_multi_az              = false
