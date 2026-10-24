@@ -107,9 +107,11 @@ jobs:
         run: |
           helm upgrade --install sonarqube sonarqube/sonarqube \
             --namespace sonarqube \
+            --set edition="" \
+            --set community.enabled=true \
             --set monitoringPasscode=sonar-monitor-passcode \
             --wait \
-            --timeout 10m
+            --timeout 15m
 
       - name: Expose SonarQube
         run: |
