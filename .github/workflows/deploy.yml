@@ -89,6 +89,39 @@ jobs:
           helm repo update
           helm upgrade --install external-secrets external-secrets/external-secrets --namespace external-secrets --create-namespace --wait --timeout 5m
 
+      # --------------------------------------------------
+      # Install SonarQube SRUTHY ADDED REMOVE THIS IF IT GIVES ERROR
+      # --------------------------------------------------
+      - name: Create SonarQube Namespace
+        run: |
+          kubectl create namespace sonarqube \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+      - name: Add SonarQube Helm Repository
+        run: |
+          helm repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
+          helm repo update
+
+      - name: Install SonarQube
+        run: |
+          helm upgrade --install sonarqube sonarqube/sonarqube \
+            --namespace sonarqube \
+            --wait \
+            --timeout 10m
+
+      - name: Expose SonarQube
+        run: |
+          kubectl patch svc sonarqube-sonarqube \
+            -n sonarqube \
+            -p '{"spec":{"type":"LoadBalancer"}}' || true
+
+      - name: Show SonarQube Endpoint
+        run: |
+          echo "SonarQube Service:"
+          kubectl get svc -n sonarqube
+      
+      
       # 8. Create Argo CD Namespace
       # --------------------------------------------------
       - name: Create Argo CD namespace
