@@ -110,8 +110,9 @@ jobs:
             --set edition="" \
             --set community.enabled=true \
             --set monitoringPasscode=sonar-monitor-passcode \
-            --wait \
-            --timeout 15m
+            --set resources.requests.memory=1024Mi \
+            --set resources.limits.memory=1280Mi \
+            --timeout 5m
 
       - name: Expose SonarQube
         run: |
