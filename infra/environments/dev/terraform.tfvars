@@ -23,13 +23,13 @@ eks_endpoint_public_access  = true
 eks_endpoint_private_access = true
 
 node_instance_types = [
-  "c7i-flex.large"
+  "t3.micro"
 ]
 
 node_capacity_type = "ON_DEMAND"
-node_desired_size  = 4
-node_min_size      = 3
-node_max_size      = 6
+node_desired_size  = 3
+node_min_size      = 2
+node_max_size      = 4
 
 ecr_image_tag_mutability     = "MUTABLE"
 ecr_image_retention_count    = 10
