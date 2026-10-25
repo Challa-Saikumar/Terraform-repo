@@ -30,15 +30,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # --------------------------------------------------
-      # Install SonarQube SRUTHY ADDED REMOVE THIS IF IT GIVES ERROR
-      # --------------------------------------------------
-   #   - name: SonarQube Scan
-   #     uses: SonarSource/sonarqube-scan-action@v5
-   #     env:
-   #       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-   #       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}    
-    
+
       # --------------------------------------------------
       # 2. Debug GitHub Context
       # --------------------------------------------------
@@ -96,9 +88,6 @@ jobs:
           helm repo add external-secrets https://charts.external-secrets.io
           helm repo update
           helm upgrade --install external-secrets external-secrets/external-secrets --namespace external-secrets --create-namespace --wait --timeout 5m
-
-  
-      # --------------------------------------------------
       # 8. Create Argo CD Namespace
       # --------------------------------------------------
       - name: Create Argo CD namespace
