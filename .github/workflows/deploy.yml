@@ -279,7 +279,7 @@ jobs:
           if [ "${{ job.status }}" = "success" ]; then
             MESSAGE="✅ EKS Deployment Successful"
           else
-            MESSAGE="❌ EKS Deployment Failed"
+            MESSAGE="❌ EKS Deployment Failed."
           fi
 
           curl -X POST \
