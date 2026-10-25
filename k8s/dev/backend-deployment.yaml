@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: 901602271390.dkr.ecr.us-east-1.amazonaws.com/nodejs-three-tier-dev-app:backend-7c1d226065c99ed02483de7730af97612473d48f
+          image: 901602271390.dkr.ecr.us-east-1.amazonaws.com/nodejs-three-tier-dev-app:backend-079f8355762076655445f56be334f927f87db941
           ports:
             - containerPort: 4000
           env:
