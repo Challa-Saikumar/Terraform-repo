@@ -54,10 +54,10 @@ resource "aws_db_instance" "main" {
 }
 
 resource "aws_secretsmanager_secret" "database" {
-  name = "${local.name_prefix}/database/credentials-sru22169"
+  name = "${local.name_prefix}/database/credentials-sasi562002"
 
   tags = {
-    Name = "${local.name_prefix}-database-credentials-sru22169"
+    Name = "${local.name_prefix}-database-credentials-sasi562002"
   }
 }
 
