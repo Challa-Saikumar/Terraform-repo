@@ -23,7 +23,7 @@ eks_endpoint_public_access  = true
 eks_endpoint_private_access = true
 
 node_instance_types = [
-  "t3.micro"
+  "t3.small"
 ]
 
 node_capacity_type = "ON_DEMAND"
