@@ -33,11 +33,11 @@ jobs:
       # --------------------------------------------------
       # Install SonarQube SRUTHY ADDED REMOVE THIS IF IT GIVES ERROR
       # --------------------------------------------------
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}    
+   #   - name: SonarQube Scan
+   #     uses: SonarSource/sonarqube-scan-action@v5
+   #     env:
+   #       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+   #       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}    
     
       # --------------------------------------------------
       # 2. Debug GitHub Context
