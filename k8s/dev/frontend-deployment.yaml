@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: 901602271390.dkr.ecr.us-east-1.amazonaws.com/nodejs-three-tier-dev-app:frontend-f5edf69caf083490924795c7d7c82bd9308e8f9c
+          image: 901602271390.dkr.ecr.us-east-1.amazonaws.com/nodejs-three-tier-dev-app:frontend-7c1d226065c99ed02483de7730af97612473d48f
           ports:
             - containerPort: 3000
           env:
