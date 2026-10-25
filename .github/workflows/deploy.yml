@@ -269,3 +269,29 @@ jobs:
           echo "Argo CD will deploy the application to EKS."
           echo ""
           echo "=========================================="
+          
+      # --------------------------------------------------
+      # 24. Added Slack
+      # --------------------------------------------------
+      - name: Notify Slack
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            MESSAGE="✅ EKS Deployment Successful"
+          else
+            MESSAGE="❌ EKS Deployment Failed"
+          fi
+
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            --data "{
+              \"text\": \"$MESSAGE
+
+              🚀 Repository: ${{ github.repository }}
+              🌿 Branch: ${{ github.ref_name }}
+              👤 Triggered By: ${{ github.actor }}
+              ⚙️ Workflow: ${{ github.workflow }}
+              🔗 Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+            }" \
+            "${{ secrets.SLACK_WEBHOOK_URL }}"          
+
