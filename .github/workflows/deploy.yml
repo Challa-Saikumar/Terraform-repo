@@ -83,23 +83,11 @@ jobs:
         with:
           version: "3.17.3"
 
-      - name: Debug EKS Authentication
-        run: |
-          echo "Checking AWS identity..."
-          aws sts get-caller-identity
-
-          echo "Checking kubeconfig context..."
-          kubectl config current-context
-
-          echo "Checking EKS access..."
-          kubectl get nodes
-
       - name: Install External Secrets Operator
         run: |
           helm repo add external-secrets https://charts.external-secrets.io
           helm repo update
           helm upgrade --install external-secrets external-secrets/external-secrets --namespace external-secrets --create-namespace --wait --timeout 5m
-
       # 8. Create Argo CD Namespace
       # --------------------------------------------------
       - name: Create Argo CD namespace
@@ -232,12 +220,17 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add k8s/dev/backend-deployment.yaml
           git add k8s/dev/frontend-deployment.yaml
-          git commit \
-            -m "Update application images to ${GITHUB_SHA}" \
-            || echo "No changes to commit"
+
+          git diff --cached --quiet || \
+          git commit -m "Update application images to ${GITHUB_SHA}"
+
+          git pull --rebase origin ${GITHUB_REF_NAME}
+
           git push origin HEAD:${GITHUB_REF_NAME}
+      
       # --------------------------------------------------
       # 22. Create Argo CD Application
       # --------------------------------------------------
@@ -281,3 +274,29 @@ jobs:
           echo "Argo CD will deploy the application to EKS."
           echo ""
           echo "=========================================="
+          
+      # --------------------------------------------------
+      # 24. Added Slack
+      # --------------------------------------------------
+      - name: Notify Slack
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            MESSAGE="✅ EKS Deployment Successful"
+          else
+            MESSAGE="❌ EKS Deployment Failed."
+          fi
+
+          curl -X POST \
+            -H "Content-Type: application/json" \
+            --data "{
+              \"text\": \"$MESSAGE
+
+              🚀 Repository: ${{ github.repository }}
+              🌿 Branch: ${{ github.ref_name }}
+              👤 Triggered By: ${{ github.actor }}
+              ⚙️ Workflow: ${{ github.workflow }}
+              🔗 Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+            }" \
+            "${{ secrets.SLACK_WEBHOOK_URL }}"          
+
