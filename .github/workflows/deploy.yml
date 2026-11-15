@@ -272,22 +272,25 @@ jobs:
       # --------------------------------------------------
       # 24. Verify Grafana Deployment
       # --------------------------------------------------
-      - name: Verify Grafana
+      - name: Verify Grafana Deployment
         run: |
-          echo "Grafana Argo CD Application:"
-          kubectl get application grafana -n argocd
+          echo "Waiting for Grafana rollout..."
 
-          echo ""
-          echo "Grafana Pods:"
+          kubectl rollout status \
+            deployment/grafana \
+            -n monitoring \
+            --timeout=300s
+
+          echo "Grafana pods:"
           kubectl get pods -n monitoring
 
-          echo ""
           echo "Grafana PVC:"
           kubectl get pvc -n monitoring
 
-          echo ""
-          echo "Grafana Service:"
+          echo "Grafana service:"
           kubectl get svc -n monitoring
+
+          echo "Grafana deployment completed."
       # --------------------------------------------------
       # 24. Final Output
       # --------------------------------------------------
