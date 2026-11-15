@@ -305,29 +305,38 @@ jobs:
         run: |
           echo "Checking Grafana Argo CD Application..."
 
-          kubectl get application grafana -n argocd
+          kubectl get application grafana -n argocd -o wide
 
-          echo ""
-          echo "Waiting for Grafana pods..."
+          echo "Waiting for Argo CD to sync Grafana..."
 
-          kubectl wait \
-            --for=condition=Ready \
-            pod \
-            -l app.kubernetes.io/instance=grafana \
-            -n monitoring \
-            --timeout=300s
+          for i in {1..30}; do
+            SYNC_STATUS=$(kubectl get application grafana -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || true)
+            HEALTH_STATUS=$(kubectl get application grafana -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || true)
 
-          echo ""
-          echo "Grafana pods:"
-          kubectl get pods -n monitoring
+            echo "Sync: ${SYNC_STATUS:-Pending} | Health: ${HEALTH_STATUS:-Pending}"
 
-          echo ""
-          echo "Grafana PVC:"
-          kubectl get pvc -n monitoring
+            if [ "$SYNC_STATUS" = "Synced" ] && [ "$HEALTH_STATUS" = "Healthy" ]; then
+              echo "Grafana successfully deployed!"
+              break
+            fi
 
-          echo ""
-          echo "Grafana service:"
-          kubectl get svc -n monitoring
+            sleep 10
+          done
+
+          if [ "$SYNC_STATUS" != "Synced" ] || [ "$HEALTH_STATUS" != "Healthy" ]; then
+            echo "Grafana deployment did not become healthy."
+
+            echo "Application details:"
+            kubectl describe application grafana -n argocd
+
+            echo "Monitoring namespace:"
+            kubectl get all -n monitoring
+
+            echo "PVC status:"
+            kubectl get pvc -n monitoring
+
+            exit 1
+          fi
       # --------------------------------------------------
       # 24. Final Output
       # --------------------------------------------------
