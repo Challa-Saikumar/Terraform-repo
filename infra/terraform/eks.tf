@@ -94,3 +94,17 @@ resource "aws_eks_node_group" "application" {
   ]
 
 } 
+
+resource "aws_eks_addon" "cloudwatch_observability" {
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "amazon-cloudwatch-observability"
+
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [
+    aws_eks_addon.pod_identity_agent,
+    aws_eks_node_group.application,
+    aws_eks_pod_identity_association.cloudwatch
+  ]
+}
