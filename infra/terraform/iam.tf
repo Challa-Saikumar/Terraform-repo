@@ -140,3 +140,73 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
   role       = aws_iam_role.ebs_csi.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEBSCSIDriverPolicyV2"
 }
+
+# Grafana CloudWatch permissions
+
+data "aws_iam_policy_document" "grafana_assume_role" {
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["pods.eks.amazonaws.com"]
+    }
+
+    actions = [
+      "sts:AssumeRole",
+      "sts:TagSession"
+    ]
+  }
+}
+
+resource "aws_iam_role" "grafana" {
+  name               = "${local.name_prefix}-grafana-role"
+  assume_role_policy = data.aws_iam_policy_document.grafana_assume_role.json
+
+  tags = {
+    Name        = "${local.name_prefix}-grafana-role"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+data "aws_iam_policy_document" "grafana_cloudwatch" {
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "cloudwatch:GetMetricData",
+      "cloudwatch:GetMetricStatistics",
+      "cloudwatch:ListMetrics",
+      "cloudwatch:DescribeAlarms",
+      "cloudwatch:DescribeAlarmHistory",
+      "cloudwatch:ListDashboards",
+      "cloudwatch:GetDashboard",
+      "ec2:DescribeRegions"
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "logs:DescribeLogGroups",
+      "logs:DescribeLogStreams",
+      "logs:GetLogEvents",
+      "logs:FilterLogEvents",
+      "logs:StartQuery",
+      "logs:GetQueryResults",
+      "logs:StopQuery"
+    ]
+
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "grafana" {
+  name   = "${local.name_prefix}-grafana-cloudwatch-policy"
+  role   = aws_iam_role.grafana.id
+  policy = data.aws_iam_policy_document.grafana_cloudwatch.json
+}
