@@ -83,6 +83,22 @@ jobs:
         with:
           version: "3.17.3"
 
+            # Create monitoring namespace
+      - name: Create Monitoring namespace
+        run: |
+          kubectl create namespace monitoring \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+
+      # Verify EKS storage
+      - name: Verify Kubernetes Storage
+        run: |
+          echo "Available Storage Classes:"
+          kubectl get storageclass
+
+          echo "EBS CSI Driver:"
+          kubectl get csidriver ebs.csi.aws.com
+
       - name: Install External Secrets Operator
         run: |
           helm repo add external-secrets https://charts.external-secrets.io
