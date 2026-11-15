@@ -108,3 +108,16 @@ resource "aws_eks_addon" "cloudwatch_observability" {
     aws_eks_pod_identity_association.cloudwatch
   ]
 }
+
+resource "aws_eks_pod_identity_association" "cloudwatch" {
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = "amazon-cloudwatch"
+  service_account = "cloudwatch-agent"
+
+  role_arn = aws_iam_role.cloudwatch.arn
+
+  depends_on = [
+    aws_eks_addon.pod_identity_agent,
+    aws_iam_role_policy_attachment.cloudwatch
+  ]
+}
