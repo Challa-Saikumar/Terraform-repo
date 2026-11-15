@@ -147,3 +147,16 @@ resource "aws_eks_pod_identity_association" "ebs_csi" {
     aws_iam_role_policy_attachment.ebs_csi
   ]
 }
+
+resource "aws_eks_pod_identity_association" "grafana" {
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = "monitoring"
+  service_account = "grafana"
+
+  role_arn = aws_iam_role.grafana.arn
+
+  depends_on = [
+    aws_eks_addon.pod_identity_agent,
+    aws_iam_role_policy.grafana
+  ]
+}
