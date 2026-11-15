@@ -24,7 +24,7 @@ spec:
           type: Recreate
 
         service:
-          type: ClusterIP
+          type: LoadBalancer
           port: 80
 
         serviceAccount:
