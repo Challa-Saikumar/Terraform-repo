@@ -261,16 +261,33 @@ jobs:
             three-tier-dev \
             -o wide
 
-      - name: Verify EBS Storage
+      - name: Create and Verify GP3 StorageClass
         run: |
+          echo "Creating GP3 StorageClass..."
+
+          cat <<EOF | kubectl apply -f -
+          apiVersion: storage.k8s.io/v1
+          kind: StorageClass
+          metadata:
+            name: gp3
+          provisioner: ebs.csi.aws.com
+          parameters:
+            type: gp3
+            fsType: ext4
+            encrypted: "true"
+          reclaimPolicy: Retain
+          allowVolumeExpansion: true
+          volumeBindingMode: WaitForFirstConsumer
+          EOF
+
           echo "Available Storage Classes:"
           kubectl get storageclass
 
-          echo "EBS CSI Driver:"
-          kubectl get csidriver ebs.csi.aws.com
-
-          echo "Checking gp3 StorageClass:"
+          echo "Verifying GP3:"
           kubectl get storageclass gp3
+
+          echo "Verifying EBS CSI Driver:"
+          kubectl get csidriver ebs.csi.aws.com
           
       - name: Deploy Grafana Application
         run: |
