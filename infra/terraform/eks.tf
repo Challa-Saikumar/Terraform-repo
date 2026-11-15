@@ -61,6 +61,19 @@ resource "aws_eks_addon" "pod_identity_agent" {
   resolve_conflicts_on_update = "OVERWRITE"
 }
 
+resource "aws_eks_addon" "ebs_csi" {
+  cluster_name = aws_eks_cluster.main.name
+  addon_name   = "aws-ebs-csi-driver"
+
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
+
+  depends_on = [
+    aws_eks_node_group.application,
+    aws_eks_pod_identity_association.ebs_csi
+  ]
+}
+
 resource "aws_eks_node_group" "application" {
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "${local.name_prefix}-node-group"
@@ -119,5 +132,18 @@ resource "aws_eks_pod_identity_association" "cloudwatch" {
   depends_on = [
     aws_eks_addon.pod_identity_agent,
     aws_iam_role_policy_attachment.cloudwatch
+  ]
+}
+
+resource "aws_eks_pod_identity_association" "ebs_csi" {
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = "kube-system"
+  service_account = "ebs-csi-controller-sa"
+
+  role_arn = aws_iam_role.ebs_csi.arn
+
+  depends_on = [
+    aws_eks_addon.pod_identity_agent,
+    aws_iam_role_policy_attachment.ebs_csi
   ]
 }
