@@ -90,15 +90,6 @@ jobs:
             --dry-run=client \
             -o yaml | kubectl apply -f -
 
-      # Verify EKS storage
-      - name: Verify Kubernetes Storage
-        run: |
-          echo "Available Storage Classes:"
-          kubectl get storageclass
-
-          echo "EBS CSI Driver:"
-          kubectl get csidriver ebs.csi.aws.com
-
       - name: Install External Secrets Operator
         run: |
           helm repo add external-secrets https://charts.external-secrets.io
@@ -269,6 +260,34 @@ jobs:
             -n argocd \
             three-tier-dev \
             -o wide
+      - name: Deploy Grafana Application
+        run: |
+          echo "Creating Grafana Argo CD Application..."
+
+          kubectl apply \
+            -f k8s/argocd/grafana-application.yaml
+
+          echo "Grafana Argo CD Application created."
+
+      # --------------------------------------------------
+      # 24. Verify Grafana Deployment
+      # --------------------------------------------------
+      - name: Verify Grafana
+        run: |
+          echo "Grafana Argo CD Application:"
+          kubectl get application grafana -n argocd
+
+          echo ""
+          echo "Grafana Pods:"
+          kubectl get pods -n monitoring
+
+          echo ""
+          echo "Grafana PVC:"
+          kubectl get pvc -n monitoring
+
+          echo ""
+          echo "Grafana Service:"
+          kubectl get svc -n monitoring
       # --------------------------------------------------
       # 24. Final Output
       # --------------------------------------------------
