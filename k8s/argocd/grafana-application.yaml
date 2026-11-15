@@ -20,6 +20,9 @@ spec:
       values: |
         replicas: 1
 
+        deploymentStrategy:
+          type: Recreate
+
         service:
           type: ClusterIP
           port: 80
