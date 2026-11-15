@@ -260,6 +260,18 @@ jobs:
             -n argocd \
             three-tier-dev \
             -o wide
+
+      - name: Verify EBS Storage
+        run: |
+          echo "Available Storage Classes:"
+          kubectl get storageclass
+
+          echo "EBS CSI Driver:"
+          kubectl get csidriver ebs.csi.aws.com
+
+          echo "Checking gp3 StorageClass:"
+          kubectl get storageclass gp3
+          
       - name: Deploy Grafana Application
         run: |
           echo "Creating Grafana Argo CD Application..."
@@ -274,23 +286,31 @@ jobs:
       # --------------------------------------------------
       - name: Verify Grafana Deployment
         run: |
-          echo "Waiting for Grafana rollout..."
+          echo "Checking Grafana Argo CD Application..."
 
-          kubectl rollout status \
-            deployment/grafana \
+          kubectl get application grafana -n argocd
+
+          echo ""
+          echo "Waiting for Grafana pods..."
+
+          kubectl wait \
+            --for=condition=Ready \
+            pod \
+            -l app.kubernetes.io/instance=grafana \
             -n monitoring \
             --timeout=300s
 
+          echo ""
           echo "Grafana pods:"
           kubectl get pods -n monitoring
 
+          echo ""
           echo "Grafana PVC:"
           kubectl get pvc -n monitoring
 
+          echo ""
           echo "Grafana service:"
           kubectl get svc -n monitoring
-
-          echo "Grafana deployment completed."
       # --------------------------------------------------
       # 24. Final Output
       # --------------------------------------------------
